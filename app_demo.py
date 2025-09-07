@@ -516,14 +516,14 @@ def risk_assessment_page():
             risk_score = 45  # Base score
             
             # Adjust based on selections (simplified logic)
-            if "Advanced" in hygiene_practices:
+            if hygiene_practices and "Advanced" in hygiene_practices:
                 risk_score -= 10
-            elif "Poor" in hygiene_practices:
+            elif hygiene_practices and "Poor" in hygiene_practices:
                 risk_score += 15
                 
-            if "Comprehensive" in vaccination_program:
+            if vaccination_program and "Comprehensive" in vaccination_program:
                 risk_score -= 8
-            elif "Irregular" in vaccination_program:
+            elif vaccination_program and "Irregular" in vaccination_program:
                 risk_score += 12
             
             # Determine risk level and color
@@ -953,55 +953,47 @@ def analytics_dashboard_page():
     # Geographic insights
     st.markdown("### 🌍 Geographic Insights")
     
-    geo_col1, geo_col2 = st.columns([2, 1])
+    # Regional data
+    regions_data = pd.DataFrame({
+        'Region': ['West Bengal', 'Odisha', 'Jharkhand', 'Bihar', 'Assam'],
+        'Farms': [45, 32, 28, 35, 16],
+        'Avg_Score': [92.5, 89.3, 91.2, 88.7, 93.1],
+    })
     
-    with geo_col1:
-        # Regional data
-        regions_data = pd.DataFrame({
-            'Region': ['West Bengal', 'Odisha', 'Jharkhand', 'Bihar', 'Assam'],
-            'Farms': [45, 32, 28, 35, 16],
-            'Avg_Score': [92.5, 89.3, 91.2, 88.7, 93.1],
-            'Lat': [22.9868, 20.9517, 23.6102, 25.0961, 26.2006],
-            'Lon': [87.8550, 85.0985, 85.2799, 85.3131, 92.9376]
-        })
-        
-        fig3 = px.scatter_mapbox(
-            regions_data, 
-            lat='Lat', 
-            lon='Lon',
-            size='Farms',
-            color='Avg_Score',
-            hover_name='Region',
-            hover_data={'Farms': True, 'Avg_Score': ':.1f'},
-            mapbox_style="open-street-map",
-            zoom=5,
-            height=500,
-            title="🗺️ Regional Farm Distribution"
-        )
-        st.plotly_chart(fig3, use_container_width=True)
+    # Simple bar chart instead of map
+    fig3 = px.bar(
+        regions_data,
+        x='Region',
+        y='Farms',
+        color='Avg_Score',
+        title="🗺️ Regional Farm Distribution",
+        color_continuous_scale='Viridis'
+    )
+    fig3.update_layout(height=400)
+    st.plotly_chart(fig3, use_container_width=True)
     
-    with geo_col2:
-        st.markdown("#### 📍 Regional Statistics")
+    # Regional statistics
+    st.markdown("#### 📍 Regional Statistics")
+    
+    for _, row in regions_data.iterrows():
+        score_color = "#4CAF50" if row['Avg_Score'] > 90 else "#FF9800" if row['Avg_Score'] > 85 else "#F44336"
         
-        for _, row in regions_data.iterrows():
-            score_color = "#4CAF50" if row['Avg_Score'] > 90 else "#FF9800" if row['Avg_Score'] > 85 else "#F44336"
-            
-            st.markdown(f"""
-            <div style="
-                background: white;
-                padding: 15px;
-                border-radius: 10px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-                border-left: 5px solid {score_color};
-                margin: 10px 0;
-            ">
-                <h4 style="margin: 0; color: #333;">{row['Region']}</h4>
-                <p style="margin: 5px 0; color: #666;">
-                    🏛️ {row['Farms']} farms<br>
-                    🎯 Score: {row['Avg_Score']:.1f}/100
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown(f"""
+        <div style="
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-left: 5px solid {score_color};
+            margin: 10px 0;
+        ">
+            <h4 style="margin: 0; color: #333;">{row['Region']}</h4>
+            <p style="margin: 5px 0; color: #666;">
+                🏛️ {row['Farms']} farms<br>
+                🎯 Score: {row['Avg_Score']:.1f}/100
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
 def protection_hub_page():
     """Advanced protection and emergency response hub"""
@@ -1633,9 +1625,9 @@ def data_export_page():
     
     export_options = ["Risk Assessment Data", "Training Progress", "Compliance Records", "Farmer Directory", "Summary Report"]
     
-    selected_export = st.selectbox("Select data to export", export_options)
+    selected_export = st.selectbox("Select data to export", export_options, index=0)
     
-    if st.button("Export Data"):
+    if st.button("Export Data") and selected_export:
         # Simulate CSV download
         sample_data = pd.DataFrame({
             'Date': ['2025-09-01', '2025-09-02', '2025-09-03'],
