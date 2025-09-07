@@ -7,6 +7,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
 from datetime import datetime, timedelta
 import base64
 
@@ -877,6 +878,130 @@ def analytics_page():
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
+
+def analytics_dashboard_page():
+    """Comprehensive analytics and insights dashboard"""
+    st.markdown(create_logo(), unsafe_allow_html=True)
+    
+    # Header
+    st.markdown("""
+    <div style="
+        background: linear-gradient(135deg, #2196F3, #64B5F6);
+        padding: 30px;
+        border-radius: 15px;
+        color: white;
+        text-align: center;
+        margin: 20px 0;
+        box-shadow: 0 8px 25px rgba(33, 150, 243, 0.3);
+    ">
+        <h2 style="margin: 0; font-size: 1.8rem; font-weight: 600;">
+            📊 Analytics Dashboard
+        </h2>
+        <p style="margin: 10px 0 0 0; font-size: 1rem; opacity: 0.9;">
+            Comprehensive insights and data-driven decisions
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # KPI Section
+    st.markdown("### 📈 Key Performance Indicators")
+    
+    kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+    
+    with kpi_col1:
+        st.metric("Total Farms", "156", "↑ 12")
+    with kpi_col2:
+        st.metric("Avg. Health Score", "94.2%", "↑ 2.1%")
+    with kpi_col3:
+        st.metric("Disease Prevention", "99.1%", "↑ 0.3%")
+    with kpi_col4:
+        st.metric("Cost Savings", "₹2.4M", "↑ ₹340K")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Charts section
+    chart_col1, chart_col2 = st.columns(2)
+    
+    with chart_col1:
+        # Farm performance over time
+        dates = pd.date_range('2024-01-01', periods=30, freq='D')
+        performance_data = pd.DataFrame({
+            'Date': dates,
+            'Health Score': 90 + 5 * np.sin(np.arange(30) * 0.2) + np.random.normal(0, 1, 30),
+            'Biosecurity Score': 85 + 8 * np.cos(np.arange(30) * 0.15) + np.random.normal(0, 1.5, 30)
+        })
+        
+        fig1 = px.line(performance_data, x='Date', y=['Health Score', 'Biosecurity Score'],
+                      title="📈 Farm Performance Trends")
+        fig1.update_layout(height=400)
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    with chart_col2:
+        # Risk distribution
+        risk_data = pd.DataFrame({
+            'Risk Level': ['Low', 'Medium', 'High', 'Critical'],
+            'Count': [95, 45, 12, 4],
+            'Color': ['#4CAF50', '#FF9800', '#FF5722', '#F44336']
+        })
+        
+        fig2 = px.pie(risk_data, values='Count', names='Risk Level',
+                     title="🎯 Risk Level Distribution",
+                     color_discrete_sequence=['#4CAF50', '#FF9800', '#FF5722', '#F44336'])
+        fig2.update_layout(height=400)
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    # Geographic insights
+    st.markdown("### 🌍 Geographic Insights")
+    
+    geo_col1, geo_col2 = st.columns([2, 1])
+    
+    with geo_col1:
+        # Regional data
+        regions_data = pd.DataFrame({
+            'Region': ['West Bengal', 'Odisha', 'Jharkhand', 'Bihar', 'Assam'],
+            'Farms': [45, 32, 28, 35, 16],
+            'Avg_Score': [92.5, 89.3, 91.2, 88.7, 93.1],
+            'Lat': [22.9868, 20.9517, 23.6102, 25.0961, 26.2006],
+            'Lon': [87.8550, 85.0985, 85.2799, 85.3131, 92.9376]
+        })
+        
+        fig3 = px.scatter_mapbox(
+            regions_data, 
+            lat='Lat', 
+            lon='Lon',
+            size='Farms',
+            color='Avg_Score',
+            hover_name='Region',
+            hover_data={'Farms': True, 'Avg_Score': ':.1f'},
+            mapbox_style="open-street-map",
+            zoom=5,
+            height=500,
+            title="🗺️ Regional Farm Distribution"
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+    
+    with geo_col2:
+        st.markdown("#### 📍 Regional Statistics")
+        
+        for _, row in regions_data.iterrows():
+            score_color = "#4CAF50" if row['Avg_Score'] > 90 else "#FF9800" if row['Avg_Score'] > 85 else "#F44336"
+            
+            st.markdown(f"""
+            <div style="
+                background: white;
+                padding: 15px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+                border-left: 5px solid {score_color};
+                margin: 10px 0;
+            ">
+                <h4 style="margin: 0; color: #333;">{row['Region']}</h4>
+                <p style="margin: 5px 0; color: #666;">
+                    🏛️ {row['Farms']} farms<br>
+                    🎯 Score: {row['Avg_Score']:.1f}/100
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
 def protection_hub_page():
     """Advanced protection and emergency response hub"""
