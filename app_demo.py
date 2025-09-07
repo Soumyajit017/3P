@@ -834,19 +834,23 @@ def analytics_page():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            fig_map = px.scatter_mapbox(
+            # Replace mapbox with a simpler scatter plot
+            fig_map = px.scatter(
                 geo_data,
-                lat='Latitude',
-                lon='Longitude',
+                x='Longitude',
+                y='Latitude',
                 size='Protected Farms',
                 color='Risk Score',
                 hover_name='State',
                 hover_data={'Protected Farms': True, 'Risk Score': True},
                 color_continuous_scale='RdYlGn_r',
                 size_max=30,
-                zoom=5,
-                mapbox_style='open-street-map',
                 title="🌍 Farm Distribution & Risk Levels"
+            )
+            fig_map.update_layout(
+                xaxis_title="Longitude",
+                yaxis_title="Latitude",
+                height=400
             )
             
             fig_map.update_layout(
