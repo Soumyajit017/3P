@@ -7,9 +7,19 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from datetime import datetime, timedelta
 import altair as alt
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import make_pipeline
+import warnings
+import os
+warnings.filterwarnings('ignore')
 # from streamlit_option_menu import option_menu  # Commented out for UI-only demo
 
 # Configure page
@@ -19,6 +29,220 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize theme in session state
+if 'theme_mode' not in st.session_state:
+    st.session_state.theme_mode = 'Light'
+
+# Theme configurations
+THEMES = {
+    'Light': {
+        'primary_bg': '#FFFFFF',
+        'secondary_bg': '#F8F9FA',
+        'sidebar_bg': '#E9ECEF',
+        'text_color': '#212529',
+        'accent_color': '#0D6EFD',
+        'border_color': '#DEE2E6',
+        'card_bg': '#FFFFFF',
+        'card_shadow': 'rgba(0,0,0,0.1)',
+        'success_color': '#198754',
+        'warning_color': '#FFC107',
+        'danger_color': '#DC3545',
+        'info_color': '#0DCAF0'
+    },
+    'Dark': {
+        'primary_bg': '#0E1117',
+        'secondary_bg': '#262730',
+        'sidebar_bg': '#1E1E1E',
+        'text_color': '#FAFAFA',
+        'accent_color': '#FF6B6B',
+        'border_color': '#3B3B3B',
+        'card_bg': '#1E1E1E',
+        'card_shadow': 'rgba(255,255,255,0.1)',
+        'success_color': '#4CAF50',
+        'warning_color': '#FF9800',
+        'danger_color': '#F44336',
+        'info_color': '#2196F3'
+    }
+}
+
+def apply_custom_theme():
+    """Apply custom CSS theme based on selected mode"""
+    theme = THEMES[st.session_state.theme_mode]
+    
+    custom_css = f"""
+    <style>
+    /* Main app styling */
+    .stApp {{
+        background-color: {theme['primary_bg']};
+        color: {theme['text_color']};
+    }}
+    
+    /* Sidebar styling */
+    .css-1d391kg, .css-1lcbmhc {{
+        background-color: {theme['sidebar_bg']};
+    }}
+    
+    /* Main content area */
+    .main .block-container {{
+        background-color: {theme['primary_bg']};
+        color: {theme['text_color']};
+        padding: 2rem;
+    }}
+    
+    /* Cards and containers */
+    .card, div[data-testid="metric-container"] {{
+        background-color: {theme['card_bg']};
+        border: 1px solid {theme['border_color']};
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 2px 4px {theme['card_shadow']};
+    }}
+    
+    /* Headings */
+    h1, h2, h3, h4, h5, h6 {{
+        color: {theme['text_color']};
+    }}
+    
+    /* Buttons */
+    .stButton > button {{
+        background-color: {theme['accent_color']};
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }}
+    
+    .stButton > button:hover {{
+        opacity: 0.8;
+        transform: translateY(-1px);
+    }}
+    
+    /* Form inputs */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stSelectbox > div > div > div,
+    .stTextArea textarea {{
+        background-color: {theme['card_bg']};
+        color: {theme['text_color']};
+        border: 1px solid {theme['border_color']};
+    }}
+    
+    /* Metrics */
+    div[data-testid="metric-container"] {{
+        background: linear-gradient(135deg, {theme['card_bg']} 0%, {theme['secondary_bg']} 100%);
+    }}
+    
+    div[data-testid="metric-container"] > div > div > div[data-testid="metric-value"] {{
+        color: {theme['accent_color']};
+        font-size: 1.5rem;
+        font-weight: bold;
+    }}
+    
+    /* Success/Warning/Error styling */
+    .success-box {{
+        background-color: {theme['success_color']};
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }}
+    
+    .warning-box {{
+        background-color: {theme['warning_color']};
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }}
+    
+    .error-box {{
+        background-color: {theme['danger_color']};
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }}
+    
+    .info-box {{
+        background-color: {theme['info_color']};
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }}
+    
+    /* Tabs */
+    .stTabs > div > div > div > div {{
+        color: {theme['text_color']};
+    }}
+    
+    .stTabs > div > div > div > div[aria-selected="true"] {{
+        color: {theme['accent_color']};
+        font-weight: bold;
+    }}
+    
+    /* Charts and plots */
+    .js-plotly-plot .plotly {{
+        background-color: {theme['card_bg']};
+    }}
+    
+    /* Tables */
+    .stDataFrame {{
+        background-color: {theme['card_bg']};
+        color: {theme['text_color']};
+    }}
+    
+    /* Progress bars */
+    .stProgress > div > div > div {{
+        background-color: {theme['accent_color']};
+    }}
+    
+    /* Expandable sections */
+    .streamlit-expanderHeader {{
+        background-color: {theme['card_bg']};
+        color: {theme['text_color']};
+        border: 1px solid {theme['border_color']};
+    }}
+    
+    /* Custom theme indicator */
+    .theme-indicator {{
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background-color: {theme['accent_color']};
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        z-index: 999;
+    }}
+    
+    /* Animations */
+    .fade-in {{
+        animation: fadeIn 0.5s ease-in;
+    }}
+    
+    @keyframes fadeIn {{
+        from {{ opacity: 0; }}
+        to {{ opacity: 1; }}
+    }}
+    
+    /* Theme transition */
+    .stApp, .main, .sidebar {{
+        transition: all 0.3s ease;
+    }}
+    </style>
+    
+    <div class="theme-indicator fade-in">
+        🎨 {st.session_state.theme_mode} Mode
+    </div>
+    """
+    
+    st.markdown(custom_css, unsafe_allow_html=True)
 
 
 
@@ -36,6 +260,11 @@ LANGUAGES = {
         "monitoring": "Monitoring Dashboard",
         "networking": "Farmer Network",
         "data_export": "Data Export",
+        "ml_predictor": "Animal Health Predictor",
+        "emergency_response": "Emergency Response",
+        "smart_analytics": "Smart Analytics",  
+        "protection_hub": "Protection Hub",
+        "performance_review": "Performance Review",
         "language": "Language",
         "farm_type": "Farm Type",
         "pig": "Pig",
@@ -128,6 +357,177 @@ def save_data(filename, data):
     # UI-only mode: do nothing
     pass
 
+# --------------------------- ML Model Integration ---------------------------
+@st.cache_data
+def load_and_train_ml_model():
+    """Load the dataset and train the ML models for animal health prediction"""
+    try:
+        # Load the disease dataset
+        csv_path = os.path.join(os.path.dirname(__file__), "disease.csv")
+        df = pd.read_csv(csv_path)
+        
+        # Clean the data - remove rows with missing Disease_Observed values
+        df_clean = df.dropna(subset=['Disease_Observed']).copy()
+        
+        # Encode categorical features
+        encoders = {}
+        cat_features = ['Animal_Type', 'Farm_ID', 'Pen_ID']
+        
+        for col in cat_features:
+            if col in df_clean.columns:
+                le = LabelEncoder()
+                df_clean[col + '_encoded'] = le.fit_transform(df_clean[col])
+                encoders[col] = le
+        
+        # Encode target variables
+        disease_encoder = LabelEncoder()
+        df_clean['Disease_Observed_encoded'] = disease_encoder.fit_transform(df_clean['Disease_Observed'])
+        
+        risk_encoder = LabelEncoder()
+        df_clean['Risk_Level_encoded'] = risk_encoder.fit_transform(df_clean['Risk_Level'])
+        
+        # Prepare features
+        feature_cols = ['Animal_Type_encoded','Farm_ID_encoded','Pen_ID_encoded','Age_Weeks','Weight_Kg','Temp_C','Humidity_%','Ammonia_ppm']
+        X = df_clean[feature_cols]
+        y_disease = df_clean['Disease_Observed_encoded']
+        y_risk = df_clean['Risk_Level_encoded']
+        
+        # Scale features
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+        
+        # Train models
+        disease_model = RandomForestClassifier(n_estimators=100, random_state=42)
+        disease_model.fit(X_scaled, y_disease)
+        
+        risk_model = RandomForestClassifier(n_estimators=100, random_state=42)
+        risk_model.fit(X_scaled, y_risk)
+        
+        return {
+            'disease_model': disease_model,
+            'risk_model': risk_model,
+            'scaler': scaler,
+            'encoders': encoders,
+            'disease_encoder': disease_encoder,
+            'risk_encoder': risk_encoder,
+            'feature_names': ['Animal_Type','Farm_ID','Pen_ID','Age_Weeks','Weight_Kg','Temp_C','Humidity_%','Ammonia_ppm'],
+            'dataset': df_clean,
+            'accuracy': {
+                'disease': disease_model.score(X_scaled, y_disease),
+                'risk': risk_model.score(X_scaled, y_risk)
+            }
+        }
+    except Exception as e:
+        return {'error': str(e)}
+
+def predict_animal_health(sensor_input, ml_models):
+    """Predict animal disease and risk level based on sensor input"""
+    try:
+        if 'error' in ml_models:
+            return {"error": f"Model loading failed: {ml_models['error']}"}
+        
+        # Check for required inputs
+        required_inputs = ml_models['feature_names']
+        missing = [key for key in required_inputs if key not in sensor_input]
+        if missing:
+            return {"error": f"Missing inputs: {missing}"}
+        
+        # Encode categorical inputs
+        input_data = []
+        
+        # Animal_Type
+        try:
+            animal_encoded = ml_models['encoders']['Animal_Type'].transform([sensor_input['Animal_Type']])[0]
+            input_data.append(animal_encoded)
+        except ValueError:
+            return {"error": f"Invalid Animal_Type '{sensor_input['Animal_Type']}'. Valid options: {list(ml_models['encoders']['Animal_Type'].classes_)}"}
+        
+        # Farm_ID
+        try:
+            farm_encoded = ml_models['encoders']['Farm_ID'].transform([sensor_input['Farm_ID']])[0]
+            input_data.append(farm_encoded)
+        except ValueError:
+            return {"error": f"Invalid Farm_ID '{sensor_input['Farm_ID']}'. Valid options: {list(ml_models['encoders']['Farm_ID'].classes_)}"}
+        
+        # Pen_ID
+        try:
+            pen_encoded = ml_models['encoders']['Pen_ID'].transform([sensor_input['Pen_ID']])[0]
+            input_data.append(pen_encoded)
+        except ValueError:
+            return {"error": f"Invalid Pen_ID '{sensor_input['Pen_ID']}'. Valid options: {list(ml_models['encoders']['Pen_ID'].classes_)}"}
+        
+        # Add numeric features
+        numeric_features = ['Age_Weeks','Weight_Kg','Temp_C','Humidity_%','Ammonia_ppm']
+        for feature in numeric_features:
+            input_data.append(sensor_input[feature])
+        
+        # Scale the input
+        input_scaled = ml_models['scaler'].transform([input_data])
+        
+        # Make predictions
+        disease_pred = ml_models['disease_model'].predict(input_scaled)[0]
+        risk_pred = ml_models['risk_model'].predict(input_scaled)[0]
+        
+        # Get probabilities
+        disease_proba = ml_models['disease_model'].predict_proba(input_scaled)[0]
+        risk_proba = ml_models['risk_model'].predict_proba(input_scaled)[0]
+        
+        # Decode predictions
+        disease_name = ml_models['disease_encoder'].inverse_transform([disease_pred])[0]
+        risk_name = ml_models['risk_encoder'].inverse_transform([risk_pred])[0]
+        
+        return {
+            "success": True,
+            "predictions": {
+                "disease": disease_name,
+                "risk_level": risk_name,
+                "disease_confidence": f"{max(disease_proba):.1%}",
+                "risk_confidence": f"{max(risk_proba):.1%}"
+            },
+            "input_data": sensor_input
+        }
+        
+    except Exception as e:
+        return {"error": f"Prediction error: {str(e)}"}
+
+# Load ML models at startup
+try:
+    ML_MODELS = load_and_train_ml_model()
+except:
+    ML_MODELS = {'error': 'Failed to load ML models'}
+
+# --------------------------- Mock Data Generators from 3P-class ---------------------------
+@st.cache_data
+def generate_timeseries(days=90):
+    """Generate mock time series data for incidents"""
+    rng = pd.date_range(end=datetime.now(), periods=days, freq='D')
+    data = pd.DataFrame({
+        'date': rng,
+        'incidents': (np.random.poisson(lam=5, size=days) + np.round(np.sin(np.linspace(0, 6.28, days)) * 3)).clip(0),
+        'severity': np.random.choice([1,2,3,4,5], size=days, p=[0.3,0.25,0.2,0.15,0.1]),
+        'cost': np.random.normal(loc=2000, scale=700, size=days).clip(100, None)
+    })
+    data['cumulative'] = data['incidents'].cumsum()
+    return data
+
+@st.cache_data
+def generate_entities(n=50):
+    """Generate mock entity data for risk assessment"""
+    names = [f"Unit-{i:03d}" for i in range(1, n+1)]
+    df = pd.DataFrame({
+        'entity': names,
+        'risk_score': np.round(np.random.beta(2,5, size=n) * 100, 1),
+        'last_incident_days': np.random.randint(0, 180, size=n),
+        'compliance_pct': np.round(np.random.uniform(60,100,size=n),1),
+        'location_lat': np.random.uniform(12.8,13.1,size=n),
+        'location_lon': np.random.uniform(77.5,77.8,size=n)
+    })
+    return df
+
+# Generate mock data
+TS = generate_timeseries(120)
+ENT = generate_entities(80)
+
 def create_sidebar():
     """Create sidebar navigation"""
     with st.sidebar:
@@ -141,6 +541,35 @@ def create_sidebar():
             index=list(LANGUAGES.keys()).index(st.session_state.language)
         )
         
+        # Theme selector
+        st.markdown("### 🎨 Theme Settings")
+        new_theme = st.selectbox(
+            "Choose Theme:",
+            options=["Light", "Dark"],
+            index=0 if st.session_state.theme_mode == "Light" else 1,
+            key="theme_selector"
+        )
+        
+        # Update theme if changed
+        if new_theme != st.session_state.theme_mode:
+            st.session_state.theme_mode = new_theme
+            st.rerun()
+        
+        # Theme preview
+        theme_color = THEMES[st.session_state.theme_mode]['accent_color']
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, {theme_color} 0%, {THEMES[st.session_state.theme_mode]['card_bg']} 100%);
+            padding: 0.5rem;
+            border-radius: 8px;
+            text-align: center;
+            color: {THEMES[st.session_state.theme_mode]['text_color']};
+            margin: 0.5rem 0;
+        ">
+            <small>🌟 {st.session_state.theme_mode} Theme Active</small>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("---")
         
         # Navigation menu - Simple selectbox for UI demo
@@ -149,12 +578,17 @@ def create_sidebar():
             options=[
                 get_text("home"),
                 get_text("risk_assessment"),
+                get_text("ml_predictor"),
+                get_text("emergency_response"),
+                get_text("smart_analytics"),
                 get_text("training"),
                 get_text("compliance"),
                 get_text("alerts"),
                 get_text("monitoring"),
+                get_text("protection_hub"),
                 get_text("networking"),
-                get_text("data_export")
+                get_text("data_export"),
+                get_text("performance_review")
             ],
             index=0
         )
@@ -166,6 +600,22 @@ def home_page():
     st.title(get_text("app_title"))
     st.markdown(f"## {get_text('welcome')} 👋")
     st.markdown(f"### {get_text('description')}")
+    
+    # Theme-aware welcome message
+    theme_icon = "🌙" if st.session_state.theme_mode == "Dark" else "☀️"
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, {THEMES[st.session_state.theme_mode]['accent_color']} 0%, {THEMES[st.session_state.theme_mode]['secondary_bg']} 100%);
+        padding: 1rem;
+        border-radius: 12px;
+        text-align: center;
+        color: white;
+        margin: 1rem 0;
+    ">
+        <h4>{theme_icon} Welcome to {st.session_state.theme_mode} Mode Experience!</h4>
+        <p>Enjoy the enhanced {st.session_state.theme_mode.lower()} interface designed for optimal farming management.</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Quick stats
     col1, col2, col3, col4 = st.columns(4)
@@ -336,6 +786,14 @@ def training_modules_page():
         }
     
     user_progress = training_data[user_id]
+    
+    # Ensure all required keys exist
+    if 'modules_completed' not in user_progress:
+        user_progress['modules_completed'] = []
+    if 'completion_rate' not in user_progress:
+        user_progress['completion_rate'] = 0
+    if 'last_updated' not in user_progress:
+        user_progress['last_updated'] = datetime.now().isoformat()
     
     # Training modules
     modules = [
@@ -1266,8 +1724,425 @@ def data_export_page():
         st.session_state.admin_logged_in = False
         st.rerun()
 
+# --------------------------- Animal Health Predictor Page ---------------------------
+def ml_predictor_page():
+    """Animal Health Predictor page with ML functionality"""
+    st.title("🐄 Animal Health Prediction System")
+    st.markdown("AI-powered disease and risk prediction for livestock using real-time sensor data")
+    
+    # Check if ML models loaded successfully
+    if 'error' in ML_MODELS:
+        st.error(f"❌ ML Model Loading Error: {ML_MODELS['error']}")
+        st.markdown("Please ensure the `disease.csv` file is in the same directory as this app.")
+    else:
+        # Display model performance
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Disease Model Accuracy", f"{ML_MODELS['accuracy']['disease']:.1%}")
+        with col2:
+            st.metric("Risk Model Accuracy", f"{ML_MODELS['accuracy']['risk']:.1%}")
+        with col3:
+            st.metric("Training Samples", len(ML_MODELS['dataset']))
+        
+        st.markdown("---")
+        
+        # Create tabs for different functionalities
+        tab1, tab2, tab3 = st.tabs(["🔮 Real-Time Prediction", "📊 Dataset Analysis", "📈 Model Performance"])
+        
+        with tab1:
+            st.markdown("### Real-Time Animal Health Prediction")
+            
+            # Create input form
+            with st.form("prediction_form"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Animal & Location Info:**")
+                    animal_type = st.selectbox("Animal Type", 
+                                             options=list(ML_MODELS['encoders']['Animal_Type'].classes_))
+                    farm_id = st.selectbox("Farm ID", 
+                                         options=list(ML_MODELS['encoders']['Farm_ID'].classes_))
+                    pen_id = st.selectbox("Pen ID", 
+                                        options=list(ML_MODELS['encoders']['Pen_ID'].classes_))
+                    age_weeks = st.number_input("Age (Weeks)", min_value=1, max_value=50, value=10)
+                    weight_kg = st.number_input("Weight (Kg)", min_value=0.1, max_value=200.0, value=25.0, step=0.1)
+                
+                with col2:
+                    st.markdown("**Environmental Sensors:**")
+                    temp_c = st.number_input("Temperature (°C)", min_value=15.0, max_value=45.0, value=30.0, step=0.1)
+                    humidity = st.number_input("Humidity (%)", min_value=30.0, max_value=100.0, value=70.0, step=0.1)
+                    ammonia_ppm = st.number_input("Ammonia (ppm)", min_value=0.0, max_value=100.0, value=25.0, step=0.1)
+                
+                submitted = st.form_submit_button("🔍 Predict Health Status", use_container_width=True)
+            
+            if submitted:
+                # Prepare sensor input
+                sensor_input = {
+                    'Animal_Type': animal_type,
+                    'Farm_ID': farm_id,
+                    'Pen_ID': pen_id,
+                    'Age_Weeks': age_weeks,
+                    'Weight_Kg': weight_kg,
+                    'Temp_C': temp_c,
+                    'Humidity_%': humidity,
+                    'Ammonia_ppm': ammonia_ppm
+                }
+                
+                # Make prediction
+                with st.spinner("Analyzing sensor data..."):
+                    result = predict_animal_health(sensor_input, ML_MODELS)
+                
+                if result.get("success"):
+                    pred = result["predictions"]
+                    
+                    # Display results
+                    st.markdown("### 🎯 Prediction Results")
+                    
+                    # Create result columns
+                    res_col1, res_col2 = st.columns(2)
+                    
+                    with res_col1:
+                        # Disease prediction
+                        disease_color = "🔴" if pred['disease'] != 'None' else "🟢"
+                        st.markdown(f"**Disease Status:** {disease_color} **{pred['disease']}**")
+                        st.markdown(f"**Confidence:** {pred['disease_confidence']}")
+                        
+                        if pred['disease'] != 'None':
+                            st.warning(f"⚠️ Disease detected: {pred['disease']}")
+                        else:
+                            st.success("✅ No disease detected")
+                    
+                    with res_col2:
+                        # Risk prediction
+                        risk_colors = {"High": "🔴", "Medium": "🟡", "Low": "🟢"}
+                        risk_color = risk_colors.get(pred['risk_level'], "⚪")
+                        st.markdown(f"**Risk Level:** {risk_color} **{pred['risk_level']}**")
+                        st.markdown(f"**Confidence:** {pred['risk_confidence']}")
+                        
+                        if pred['risk_level'] == "High":
+                            st.error("🚨 High risk detected!")
+                        elif pred['risk_level'] == "Medium":
+                            st.warning("⚠️ Medium risk level")
+                        else:
+                            st.success("✅ Low risk level")
+                    
+                    # Recommendations
+                    st.markdown("### 💡 Recommendations")
+                    if pred['disease'] != 'None':
+                        if pred['disease'] == 'Avian Influenza':
+                            st.markdown("- 🏥 Isolate affected animals immediately")
+                            st.markdown("- 💊 Consult veterinarian for antiviral treatment")
+                            st.markdown("- 🧼 Implement strict biosecurity measures")
+                        elif pred['disease'] == 'Coccidiosis':
+                            st.markdown("- 💊 Administer anticoccidial medication")
+                            st.markdown("- 🧽 Improve pen hygiene and sanitation")
+                            st.markdown("- 💧 Ensure clean water supply")
+                        elif pred['disease'] == 'Swine Flu':
+                            st.markdown("- 🏥 Quarantine affected pigs")
+                            st.markdown("- 💉 Consider vaccination for healthy animals")
+                            st.markdown("- 🌡️ Monitor temperature closely")
+                    else:
+                        st.markdown("- ✅ Continue current management practices")
+                        st.markdown("- 📊 Monitor environmental conditions")
+                        st.markdown("- 🔄 Regular health checkups recommended")
+                
+                else:
+                    st.error(f"❌ Prediction failed: {result.get('error')}")
+        
+        with tab2:
+            st.markdown("### 📊 Dataset Analysis")
+            dataset = ML_MODELS['dataset']
+            
+            # Dataset overview
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Records", len(dataset))
+            with col2:
+                st.metric("Disease Cases", len(dataset[dataset['Disease_Observed'] != 'None']))
+            with col3:
+                st.metric("Animal Types", dataset['Animal_Type'].nunique())
+            with col4:
+                st.metric("Farms", dataset['Farm_ID'].nunique())
+            
+            # Visualizations
+            disease_counts = dataset['Disease_Observed'].value_counts()
+            fig_disease = px.bar(x=disease_counts.index, y=disease_counts.values, 
+                               title="Disease Distribution in Dataset")
+            st.plotly_chart(fig_disease, use_container_width=True)
+        
+        with tab3:
+            st.markdown("### 📈 Model Performance")
+            feature_names = ['Animal_Type', 'Farm_ID', 'Pen_ID', 'Age_Weeks', 'Weight_Kg', 'Temp_C', 'Humidity_%', 'Ammonia_ppm']
+            disease_importance = ML_MODELS['disease_model'].feature_importances_
+            risk_importance = ML_MODELS['risk_model'].feature_importances_
+            
+            # Feature importance chart
+            importance_df = pd.DataFrame({
+                'Feature': feature_names,
+                'Disease_Model': disease_importance,
+                'Risk_Model': risk_importance
+            })
+            
+            fig_importance = px.bar(importance_df.melt(id_vars='Feature'), 
+                                  x='Feature', y='value', color='variable',
+                                  title="Feature Importance Comparison")
+            st.plotly_chart(fig_importance, use_container_width=True)
+
+# --------------------------- Emergency Response Page ---------------------------
+def emergency_response_page():
+    """Emergency Response page"""
+    st.title("🚨 Emergency Response Center")
+    st.markdown("Rapid response protocols and emergency management")
+    
+    col1, col2 = st.columns([2,1])
+    
+    with col1:
+        st.markdown("### 🆘 Active Emergencies")
+        
+        # Mock emergency data
+        emergencies = pd.DataFrame({
+            'incident_id': ['EMG-001', 'EMG-002', 'EMG-003'],
+            'type': ['Disease Outbreak', 'Fire Hazard', 'Equipment Failure'],
+            'severity': ['High', 'Critical', 'Medium'],
+            'location': ['Farm A - Pen 3', 'Farm B - Storage', 'Farm A - Pen 1'],
+            'time': ['2 hours ago', '30 minutes ago', '1 day ago'],
+            'status': ['In Progress', 'Responding', 'Resolved']
+        })
+        
+        for _, emergency in emergencies.iterrows():
+            severity_color = {"Critical": "🔴", "High": "🟠", "Medium": "🟡", "Low": "🟢"}
+            color = severity_color.get(emergency['severity'], "⚪")
+            
+            st.markdown(f"""
+            **{color} {emergency['incident_id']} - {emergency['type']}**
+            - Location: {emergency['location']}
+            - Severity: {emergency['severity']}
+            - Status: {emergency['status']}
+            - Time: {emergency['time']}
+            """)
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if st.button(f"View Details - {emergency['incident_id']}", key=f"view_{emergency['incident_id']}"):
+                    st.info(f"Viewing details for {emergency['incident_id']}")
+            with col_b:
+                if emergency['status'] != 'Resolved':
+                    if st.button(f"Mark Resolved - {emergency['incident_id']}", key=f"resolve_{emergency['incident_id']}"):
+                        st.success(f"Marked {emergency['incident_id']} as resolved")
+            
+            st.markdown("---")
+    
+    with col2:
+        st.markdown("### 📞 Quick Actions")
+        
+        if st.button("🚨 Report New Emergency", use_container_width=True):
+            st.error("Emergency reporting system activated!")
+        
+        if st.button("🏥 Contact Veterinarian", use_container_width=True):
+            st.info("Connecting to emergency veterinary services...")
+        
+        if st.button("🔥 Fire Department", use_container_width=True):
+            st.info("Contacting fire department...")
+        
+        if st.button("📋 View Protocols", use_container_width=True):
+            st.info("Loading emergency protocols...")
+        
+        st.markdown("### 📊 Response Stats")
+        st.metric("Response Time (Avg)", "12 minutes")
+        st.metric("Active Incidents", "2")
+        st.metric("Resolved Today", "5")
+
+# --------------------------- Smart Analytics Page ---------------------------
+def smart_analytics_page():
+    """Smart Analytics page"""
+    st.title("📊 Smart Analytics Dashboard")
+    st.markdown("Advanced analytics and insights for farm management")
+    
+    # Analytics tabs
+    tab1, tab2, tab3 = st.tabs(["📈 Trends", "🔍 Anomalies", "🎯 Predictions"])
+    
+    with tab1:
+        st.markdown("### 📈 Historical Trends")
+        
+        # Generate trend data
+        dates = pd.date_range(start='2025-01-01', end='2025-09-11', freq='D')
+        trend_data = pd.DataFrame({
+            'Date': dates,
+            'Disease_Cases': np.random.poisson(3, len(dates)),
+            'Temperature': 25 + 5 * np.sin(np.arange(len(dates)) * 2 * np.pi / 365) + np.random.normal(0, 2, len(dates)),
+            'Mortality_Rate': np.random.uniform(0.1, 2.0, len(dates))
+        })
+        
+        # Trend charts
+        fig_disease = px.line(trend_data, x='Date', y='Disease_Cases', title='Disease Cases Over Time')
+        st.plotly_chart(fig_disease, use_container_width=True)
+        
+        fig_temp = px.line(trend_data, x='Date', y='Temperature', title='Temperature Trends')
+        st.plotly_chart(fig_temp, use_container_width=True)
+    
+    with tab2:
+        st.markdown("### 🔍 Anomaly Detection")
+        
+        # Mock anomaly data
+        anomalies = TS.tail(60).copy()
+        anomalies['z_score'] = (anomalies['incidents'] - anomalies['incidents'].mean()) / anomalies['incidents'].std()
+        detected_anomalies = anomalies[np.abs(anomalies['z_score']) > 2]
+        
+        st.write(f"**Anomalies Detected:** {len(detected_anomalies)}")
+        
+        fig_anomaly = px.scatter(anomalies, x='date', y='incidents', color='z_score',
+                               title='Incident Anomalies (Z-Score > 2)')
+        st.plotly_chart(fig_anomaly, use_container_width=True)
+        
+        if len(detected_anomalies) > 0:
+            st.markdown("#### Detected Anomalies:")
+            st.dataframe(detected_anomalies[['date', 'incidents', 'z_score']])
+    
+    with tab3:
+        st.markdown("### 🎯 Predictive Analytics")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Risk Predictions (Next 7 Days)")
+            future_risk = pd.DataFrame({
+                'Day': [f'Day +{i}' for i in range(1, 8)],
+                'Risk_Score': np.random.uniform(20, 80, 7)
+            })
+            
+            fig_risk = px.bar(future_risk, x='Day', y='Risk_Score', 
+                            title='Predicted Risk Scores')
+            st.plotly_chart(fig_risk, use_container_width=True)
+        
+        with col2:
+            st.markdown("#### Recommended Actions")
+            recommendations = [
+                "Increase biosecurity measures in Pen 3",
+                "Schedule vaccination for Farm B",
+                "Monitor temperature in Storage Area",
+                "Reduce animal density in high-risk areas",
+                "Implement additional cleaning protocols"
+            ]
+            
+            for i, rec in enumerate(recommendations, 1):
+                st.markdown(f"{i}. {rec}")
+
+# --------------------------- Protection Hub Page ---------------------------
+def protection_hub_page():
+    """Protection Hub page"""
+    st.title("🛡️ Protection Hub")
+    st.markdown("Comprehensive protection protocols and security measures")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Protected Units", len(ENT))
+        st.metric("Security Level", "High")
+    with col2:
+        st.metric("Avg Compliance", f"{ENT['compliance_pct'].mean():.1f}%")
+        st.metric("Active Protocols", "12")
+    with col3:
+        st.metric("Avg Risk Score", f"{ENT['risk_score'].mean():.1f}")
+        st.metric("Incidents Today", "3")
+    
+    st.markdown("---")
+    
+    # Protection protocols
+    st.markdown("### 🔐 Security Protocols")
+    
+    protocols = [
+        {"name": "Biosecurity Protocol", "status": "Active", "last_update": "2 hours ago"},
+        {"name": "Access Control", "status": "Active", "last_update": "1 day ago"},
+        {"name": "Quarantine Procedures", "status": "Standby", "last_update": "3 hours ago"},
+        {"name": "Emergency Lockdown", "status": "Standby", "last_update": "1 week ago"}
+    ]
+    
+    for protocol in protocols:
+        status_color = "🟢" if protocol["status"] == "Active" else "🟡"
+        st.markdown(f"""
+        **{status_color} {protocol['name']}**
+        - Status: {protocol['status']}
+        - Last Updated: {protocol['last_update']}
+        """)
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button(f"View Details - {protocol['name']}", key=f"view_{protocol['name']}"):
+                st.info(f"Loading {protocol['name']} details...")
+        with col_b:
+            if st.button(f"Execute - {protocol['name']}", key=f"exec_{protocol['name']}"):
+                st.success(f"Executing {protocol['name']}...")
+
+# --------------------------- Performance Review Page ---------------------------
+def performance_review_page():
+    """Performance Review page"""
+    st.title("📈 Performance Review & Insights")
+    st.markdown("Comprehensive performance analysis and recommendations")
+    
+    # Performance metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Overall Score", "85%", delta="5%")
+    with col2:
+        st.metric("Efficiency", "92%", delta="3%")
+    with col3:
+        st.metric("Cost Reduction", "₹2.5M", delta="12%")
+    with col4:
+        st.metric("Incidents Prevented", "47", delta="8")
+    
+    st.markdown("---")
+    
+    # Performance charts
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Team performance
+        teams = pd.DataFrame({
+            'team': [f'Team {i}' for i in range(1, 6)],
+            'resolved': np.random.randint(20, 100, 5),
+            'response_time': np.random.uniform(1, 24, 5),
+            'quality_score': np.random.uniform(75, 98, 5)
+        })
+        
+        fig_teams = px.bar(teams, x='team', y='resolved', 
+                          title='Incidents Resolved by Team')
+        st.plotly_chart(fig_teams, use_container_width=True)
+    
+    with col2:
+        # Monthly trends
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
+        performance = pd.DataFrame({
+            'Month': months,
+            'Score': np.random.uniform(75, 95, len(months))
+        })
+        
+        fig_monthly = px.line(performance, x='Month', y='Score', 
+                            title='Monthly Performance Trend')
+        st.plotly_chart(fig_monthly, use_container_width=True)
+    
+    # Recommendations
+    st.markdown("### 💡 Automated Recommendations")
+    recommendations = [
+        "Increase training frequency for Team 3 - suggested bi-weekly sessions",
+        "Implement automated alerts for compliance scores below 80%",
+        "Schedule quarterly emergency drills for high-risk units",
+        "Optimize resource allocation to reduce response time by 15%",
+        "Deploy additional sensors in areas with recurring incidents"
+    ]
+    
+    for i, rec in enumerate(recommendations, 1):
+        st.markdown(f"**{i}.** {rec}")
+    
+    # Performance table
+    st.markdown("### 📊 Detailed Performance Metrics")
+    st.dataframe(teams.round(2))
+
 def main():
     """Main application function"""
+    # Apply custom theme first
+    apply_custom_theme()
+    
     # Create sidebar and get selected page
     selected_page = create_sidebar()
     
@@ -1275,12 +2150,17 @@ def main():
     page_mapping = {
         get_text("home"): home_page,
         get_text("risk_assessment"): risk_assessment_page,
+        get_text("ml_predictor"): ml_predictor_page,
+        get_text("emergency_response"): emergency_response_page,
+        get_text("smart_analytics"): smart_analytics_page,
         get_text("training"): training_modules_page,
         get_text("compliance"): compliance_tracking_page,
         get_text("alerts"): alerts_notifications_page,
         get_text("monitoring"): monitoring_dashboard_page,
+        get_text("protection_hub"): protection_hub_page,
         get_text("networking"): farmer_network_page,
-        get_text("data_export"): data_export_page
+        get_text("data_export"): data_export_page,
+        get_text("performance_review"): performance_review_page
     }
     
     # Execute selected page function
